@@ -2,7 +2,7 @@
 #include <allegro5/allegro.h>
 #include <allegro5/allegro_primitives.h>
 
-#include <map.hpp>
+#include <collision_map.hpp>
 
 BaseMap::BaseMap(int width, int height, int tile_size) :
     width(width), height(height), tile_size(tile_size), tiles(width * height) {}
