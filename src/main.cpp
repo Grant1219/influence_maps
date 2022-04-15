@@ -10,17 +10,62 @@
 #include <imgui_impl_allegro5.h>
 #include <imgui_stdlib.h>
 
-#include <map.hpp>
+#include <collision_map.hpp>
 #include <influence_map.hpp>
 
 const int SCREEN_WIDTH = 1600;
 const int SCREEN_HEIGHT = 1080;
 const int FPS = 30;
 
+ALLEGRO_DISPLAY* display;
+ALLEGRO_TIMER* loop_timer;
+ALLEGRO_TIMER* influence_timer;
+ALLEGRO_EVENT_QUEUE* ev_queue;
+ALLEGRO_FONT* bitmap_font;
+
 enum class MouseEditMode {
     BLOCK_TILE,
     PLACE_INFLUENCE
 };
+
+void draw_collision_map(std::shared_ptr<CollisionMap> map, int start_x, int start_y, int end_x, int end_y) {
+    int width = map->get_width();
+    int height = map->get_height();
+    int tile_size = map->get_tile_size();
+    const auto& collision_map = map->get_collision_map();
+
+    for (int y = std::max(start_y / tile_size, 0); y < height && y * tile_size < end_y; y++) {
+        for (int x = std::max(start_x / tile_size, 0); x < width && x * tile_size < end_x; x++) {
+            al_draw_rectangle(x * tile_size - start_x, y * tile_size - start_y,
+                    (x + 1) * tile_size - start_x, (y + 1) * tile_size - start_y,
+                    al_map_rgb(225, 225, 225), 1.0f);
+            if (collision_map[width * y + x]) {
+                al_draw_filled_rectangle(x * tile_size + 1 - start_x, y * tile_size + 1 - start_y,
+                        (x + 1) * tile_size - 1 - start_x, (y + 1) * tile_size - 1 - start_y,
+                        al_map_rgb(225, 0, 0));
+            }
+        }
+    }
+}
+
+void draw_influence_map(std::shared_ptr<InfluenceMap> map, int start_x, int start_y, int end_x, int end_y) {
+    int width = map->get_width();
+    int height = map->get_height();
+    int tile_size = map->get_tile_size();
+    float strength = map->get_strength();
+    const auto& influence_map = map->get_influence_map();
+
+    for (int y = std::max(start_y / tile_size, 0); y < height && y * tile_size < end_y; y++) {
+        for (int x = std::max(start_x / tile_size, 0); x < width && x * tile_size < end_x; x++) {
+            al_draw_filled_rectangle(x * tile_size + 1 - start_x, y * tile_size + 1 - start_y,
+                    (x + 1) * tile_size - 1 - start_x, (y + 1) * tile_size - 1 - start_y,
+                    al_map_rgba(0, 0, 225, influence_map[width * y + x] * 255 / strength));
+            al_draw_textf(bitmap_font, al_map_rgb(230, 230, 230),
+                    x * tile_size - start_x + tile_size / 3.4, y * tile_size - start_y + tile_size / 2.5, 0,
+                    "%.2f", influence_map[width * y + x]);
+        }
+    }
+}
 
 int main(int argc, char** argv) {
     al_init();
@@ -29,12 +74,6 @@ int main(int argc, char** argv) {
     al_init_font_addon();
     al_install_keyboard();
     al_install_mouse();
-
-    ALLEGRO_DISPLAY* display;
-    ALLEGRO_TIMER* loop_timer;
-    ALLEGRO_TIMER* influence_timer;
-    ALLEGRO_EVENT_QUEUE* ev_queue;
-    ALLEGRO_FONT* bitmap_font;
 
     display = al_create_display(SCREEN_WIDTH, SCREEN_HEIGHT);
     loop_timer = al_create_timer(1.0f / FPS);
@@ -79,7 +118,7 @@ int main(int argc, char** argv) {
     int map_width = 50, map_height = 50;
     MouseEditMode mouse_edit_mode = MouseEditMode::BLOCK_TILE;
 
-    std::unique_ptr<BaseMap> current_map = nullptr;
+    std::shared_ptr<CollisionMap> current_map = nullptr;
 
     std::string inf_map_name;
     float inf_map_strength = 5.0f, inf_map_decay = 0.5f, inf_map_momentum = 0.3f;
@@ -213,7 +252,7 @@ int main(int argc, char** argv) {
                 ImGui::Text("Map height: %d", map_height);
 
                 if (ImGui::Button("Delete Map")) {
-                    current_map.reset(nullptr);
+                    current_map.reset();
                     influence_maps.clear();
                 }
             }
@@ -224,7 +263,7 @@ int main(int argc, char** argv) {
                 ImGui::InputInt("Map width", &map_width);
                 ImGui::InputInt("Map height", &map_height);
                 if (ImGui::Button("Create Map")) {
-                    current_map = std::make_unique<BaseMap>(map_width, map_height, tile_size);
+                    current_map = std::make_shared<CollisionMap>(map_width, map_height, tile_size);
                     std::cout << "Created map with tile_size=" << tile_size <<
                         " and dimensions=(" << map_width << ", " << map_height << ")" << std::endl;
                     ImGui::SetNextWindowPos(ImVec2(60, 250));
@@ -234,10 +273,10 @@ int main(int argc, char** argv) {
             ImGui::End();
 
             if (current_map != nullptr) {
-                ImGui::Begin("Influence maps");
+                ImGui::Begin("Influence maps", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
                 ImGui::InputText("Name", &inf_map_name);
                 ImGui::SliderFloat("Strength", &inf_map_strength, 1.0f, 50.0f);
-                ImGui::SliderFloat("Decay", &inf_map_decay, 0.0f, 1.0f);
+                ImGui::SliderFloat("Decay", &inf_map_decay, 0.0001f, 1.0f);
                 ImGui::SliderFloat("Momentum", &inf_map_momentum, 0.0f, 1.0f);
                 if (ImGui::Button("Create Influence")) {
                     if (inf_map_name.size() > 0) {
@@ -248,7 +287,7 @@ int main(int argc, char** argv) {
 
                 ImGui::Separator();
                 ImGui::Text("Influence list");
-                if (ImGui::ListBoxHeader("", influence_maps.size(), 10)) {
+                if (ImGui::ListBoxHeader("##influences", influence_maps.size(), 10)) {
                     for (const auto& i : influence_maps) {
                         if (ImGui::Selectable(i->get_name().c_str(), i == selected_inf_map)) {
                             selected_inf_map = i;
@@ -262,14 +301,16 @@ int main(int argc, char** argv) {
             ImGui::Render();
             al_clear_to_color(al_map_rgb(0, 0, 0));
 
-            // render the base map
+            // render the collision map
             if (current_map != nullptr) {
-                current_map->draw(cam_x, cam_y, cam_x + SCREEN_WIDTH, cam_y + SCREEN_HEIGHT);
+                draw_collision_map(current_map, cam_x, cam_y, cam_x + SCREEN_WIDTH, cam_y + SCREEN_HEIGHT);
             }
 
             // render all influence maps
             for (const auto& i : influence_maps) {
-                i->draw(cam_x, cam_y, cam_x + SCREEN_WIDTH, cam_y + SCREEN_HEIGHT);
+                if (i == selected_inf_map) {
+                    draw_influence_map(i, cam_x, cam_y, cam_x + SCREEN_WIDTH, cam_y + SCREEN_HEIGHT);
+                }
             }
 
             // render GUI

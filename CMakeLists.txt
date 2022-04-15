@@ -18,7 +18,7 @@ target_include_directories(influence_maps PRIVATE
 
 target_sources(influence_maps PRIVATE
     src/main.cpp
-    src/map.cpp
+    src/collision_map.cpp
     src/influence_map.cpp
 )
 

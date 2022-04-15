@@ -9,8 +9,6 @@ class InfluenceMap {
     public:
         InfluenceMap(std::string name, int width, int height, int tile_size, float strength, float decay, float momentum);
 
-        void draw(int start_x, int start_y, int end_x, int end_y);
-
         void add_influence(int tile_x, int tile_y);
         void remove_influence(int tile_x, int tile_y);
 
@@ -18,6 +16,13 @@ class InfluenceMap {
         void print_values();
 
         const std::string& get_name() const { return name; }
+        const std::vector<float>& get_influence_map() const { return influence_map; }
+        const int get_width() { return width; }
+        const int get_height() { return height; }
+        const int get_tile_size() { return tile_size; }
+        const float get_strength() { return strength; }
+        const float get_decay() { return decay; }
+        const float get_momentum() { return momentum; }
 
     private:
         struct InfluenceSource {

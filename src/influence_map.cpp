@@ -17,18 +17,6 @@ InfluenceMap::InfluenceMap(std::string name, int width, int height, int tile_siz
     influence_map(width * height, 0.0f),
     influence_buffer(width * height, 0.0f) {}
 
-void InfluenceMap::draw(int start_x, int start_y, int end_x, int end_y) {
-    for (int y = std::max(start_y / tile_size, 0); y < height && y * tile_size < end_y; y++) {
-        for (int x = std::max(start_x / tile_size, 0); x < width && x * tile_size < end_x; x++) {
-            if (influence_map[width * y + x] > 0.0f) {
-                al_draw_filled_rectangle(x * tile_size + 1 - start_x, y * tile_size + 1 - start_y,
-                        (x + 1) * tile_size - 1 - start_x, (y + 1) * tile_size - 1 - start_y,
-                        al_map_rgba(0, 0, 225, influence_map[width * y + x] * 255 / strength));
-            }
-        }
-    }
-}
-
 void InfluenceMap::add_influence(int tile_x, int tile_y) {
     if (tile_x >= 0 && tile_y >= 0 && tile_x < width && tile_y < height) {
         auto itr = std::find_if(influence_sources.begin(), influence_sources.end(), [&](const InfluenceSource& s) { return s.x == tile_x && s.y == tile_y; });
