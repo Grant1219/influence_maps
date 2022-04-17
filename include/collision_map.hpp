@@ -9,6 +9,7 @@ class CollisionMap {
 
         void draw(int start_x, int start_y, int end_x, int end_y);
         void set_blocked(int tile_x, int tile_y, bool blocked);
+        const bool is_blocked(int tile_x, int tile_y);
 
         const std::vector<bool>& get_collision_map() const { return collision_tiles; }
         const int get_width() { return width; }

@@ -118,7 +118,7 @@ int main(int argc, char** argv) {
     int map_width = 50, map_height = 50;
     MouseEditMode mouse_edit_mode = MouseEditMode::BLOCK_TILE;
 
-    std::shared_ptr<CollisionMap> current_map = nullptr;
+    std::shared_ptr<CollisionMap> collision_map = nullptr;
 
     std::string inf_map_name;
     float inf_map_strength = 5.0f, inf_map_decay = 0.5f, inf_map_momentum = 0.3f;
@@ -202,20 +202,20 @@ int main(int argc, char** argv) {
 
         // logic for drawing on map
         if (mouse_edit_mode == MouseEditMode::BLOCK_TILE && !io.WantCaptureMouse) {
-            if (current_map != nullptr) {
+            if (collision_map != nullptr) {
                 al_get_mouse_state(&mouse);
 
                 if (mouse.buttons & 1) {
                     int tile_x = (cam_x + mouse.x) / tile_size;
                     int tile_y = (cam_y + mouse.y) / tile_size;
 
-                    current_map->set_blocked(tile_x, tile_y, true);
+                    collision_map->set_blocked(tile_x, tile_y, true);
                 }
                 else if (mouse.buttons & 2) {
                     int tile_x = (cam_x + mouse.x) / tile_size;
                     int tile_y = (cam_y + mouse.y) / tile_size;
 
-                    current_map->set_blocked(tile_x, tile_y, false);
+                    collision_map->set_blocked(tile_x, tile_y, false);
                 }
             }
         }
@@ -246,13 +246,13 @@ int main(int argc, char** argv) {
 
             ImGui::Begin("Map info");
 
-            if (current_map != nullptr) {
+            if (collision_map != nullptr) {
                 ImGui::Text("Tile size: %d", tile_size);
                 ImGui::Text("Map width: %d", map_width);
                 ImGui::Text("Map height: %d", map_height);
 
                 if (ImGui::Button("Delete Map")) {
-                    current_map.reset();
+                    collision_map.reset();
                     influence_maps.clear();
                 }
             }
@@ -263,7 +263,7 @@ int main(int argc, char** argv) {
                 ImGui::InputInt("Map width", &map_width);
                 ImGui::InputInt("Map height", &map_height);
                 if (ImGui::Button("Create Map")) {
-                    current_map = std::make_shared<CollisionMap>(map_width, map_height, tile_size);
+                    collision_map = std::make_shared<CollisionMap>(map_width, map_height, tile_size);
                     std::cout << "Created map with tile_size=" << tile_size <<
                         " and dimensions=(" << map_width << ", " << map_height << ")" << std::endl;
                     ImGui::SetNextWindowPos(ImVec2(60, 250));
@@ -272,16 +272,16 @@ int main(int argc, char** argv) {
 
             ImGui::End();
 
-            if (current_map != nullptr) {
+            if (collision_map != nullptr) {
                 ImGui::Begin("Influence maps", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
                 ImGui::InputText("Name", &inf_map_name);
-                ImGui::SliderFloat("Strength", &inf_map_strength, 1.0f, 50.0f);
+                ImGui::SliderFloat("Strength", &inf_map_strength, -30.0f, 30.0f);
                 ImGui::SliderFloat("Decay", &inf_map_decay, 0.0001f, 1.0f);
                 ImGui::SliderFloat("Momentum", &inf_map_momentum, 0.0f, 1.0f);
                 if (ImGui::Button("Create Influence")) {
                     if (inf_map_name.size() > 0) {
                         // TODO allow customizing strength, decay, momentum
-                        influence_maps.emplace_back(std::make_shared<InfluenceMap>(inf_map_name, map_width, map_height, tile_size, inf_map_strength, inf_map_decay, inf_map_momentum));
+                        influence_maps.emplace_back(std::make_shared<InfluenceMap>(inf_map_name, collision_map, inf_map_strength, inf_map_decay, inf_map_momentum));
                     }
                 }
 
@@ -291,6 +291,10 @@ int main(int argc, char** argv) {
                     for (const auto& i : influence_maps) {
                         if (ImGui::Selectable(i->get_name().c_str(), i == selected_inf_map)) {
                             selected_inf_map = i;
+                            inf_map_name = i->get_name();
+                            inf_map_strength = i->get_strength();
+                            inf_map_decay = i->get_decay();
+                            inf_map_momentum = i->get_momentum();
                         }
                     }
                     ImGui::ListBoxFooter();
@@ -302,8 +306,8 @@ int main(int argc, char** argv) {
             al_clear_to_color(al_map_rgb(0, 0, 0));
 
             // render the collision map
-            if (current_map != nullptr) {
-                draw_collision_map(current_map, cam_x, cam_y, cam_x + SCREEN_WIDTH, cam_y + SCREEN_HEIGHT);
+            if (collision_map != nullptr) {
+                draw_collision_map(collision_map, cam_x, cam_y, cam_x + SCREEN_WIDTH, cam_y + SCREEN_HEIGHT);
             }
 
             // render all influence maps

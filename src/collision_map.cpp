@@ -12,3 +12,12 @@ void CollisionMap::set_blocked(int tile_x, int tile_y, bool blocked) {
         collision_tiles[width * tile_y + tile_x] = blocked;
     }
 }
+
+const bool CollisionMap::is_blocked(int tile_x, int tile_y) {
+    if (tile_x >= 0 && tile_y >= 0 && tile_x < width && tile_y < height) {
+        return collision_tiles[width * tile_y + tile_x];
+    }
+    else{
+        return true;
+    }
+}

@@ -6,19 +6,18 @@
 
 #include <influence_map.hpp>
 
-InfluenceMap::InfluenceMap(std::string name, int width, int height, int tile_size, float strength, float decay, float momentum) :
+InfluenceMap::InfluenceMap(std::string name, std::shared_ptr<CollisionMap> collision_map, float strength, float decay, float momentum, bool collision_enabled) :
     name(name),
-    width(width),
-    height(height),
-    tile_size(tile_size),
+    collision_map(collision_map),
     strength(strength),
     decay(decay),
     momentum(momentum),
-    influence_map(width * height, 0.0f),
-    influence_buffer(width * height, 0.0f) {}
+    collision_enabled(collision_enabled),
+    influence_map(collision_map->get_width() * collision_map->get_height(), 0.0f),
+    influence_buffer(collision_map->get_width() * collision_map->get_height(), 0.0f) {}
 
 void InfluenceMap::add_influence(int tile_x, int tile_y) {
-    if (tile_x >= 0 && tile_y >= 0 && tile_x < width && tile_y < height) {
+    if (tile_x >= 0 && tile_y >= 0 && tile_x < collision_map->get_width() && tile_y < collision_map->get_height()) {
         auto itr = std::find_if(influence_sources.begin(), influence_sources.end(), [&](const InfluenceSource& s) { return s.x == tile_x && s.y == tile_y; });
         if (itr == influence_sources.end()) {
             InfluenceSource src = {tile_x, tile_y};
@@ -28,12 +27,16 @@ void InfluenceMap::add_influence(int tile_x, int tile_y) {
 }
 
 void InfluenceMap::remove_influence(int tile_x, int tile_y) {
-    if (tile_x >= 0 && tile_y >= 0 && tile_x < width && tile_y < height) {
+    if (tile_x >= 0 && tile_y >= 0 && tile_x < collision_map->get_width() && tile_y < collision_map->get_height()) {
         std::erase_if(influence_sources, [&](const InfluenceSource& s) { return s.x == tile_x && s.y == tile_y; });
     }
 }
 
 void InfluenceMap::recalculate() {
+    int width = collision_map->get_width();
+    int height = collision_map->get_height();
+    const auto& blocked_map = collision_map->get_collision_map();
+
     for (const auto& src : influence_sources) {
         // first setup the sources of influence
         influence_buffer[width * src.y + src.x] = strength;
@@ -44,6 +47,12 @@ void InfluenceMap::recalculate() {
 
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
+            if (collision_enabled && blocked_map[width * y + x]) {
+                // skip blocked tiles and reset influence to zero
+                influence_buffer[width * y + x] = 0.0f;
+                continue;
+            }
+
             float max_influence = 0.0f;
             float min_influence = 0.0f;
 
@@ -81,16 +90,4 @@ void InfluenceMap::recalculate() {
 
     // now apply changes to the buffer for the next calculation
     influence_buffer = influence_map;
-}
-
-void InfluenceMap::print_values() {
-    std::cout << "Printing influence map values..." << std::endl;
-    std::cout << "{" << std::endl;
-    for (int y = 0; y < height; ++y) {
-        for (int x = 0; x < width; ++x) {
-            std::cout << "(" << x << ", " << y << "), " << influence_map[width * y + x];
-        }
-        std::cout << std::endl;
-    }
-    std::cout << "}" << std::endl;
 }
