@@ -82,6 +82,9 @@ int main(int argc, char** argv) {
     // setup blending for non-premultiplied alpha
     al_set_blender(ALLEGRO_ADD, ALLEGRO_ALPHA, ALLEGRO_INVERSE_ALPHA);
 
+    // setup blending for non-premultiplied alpha
+    al_set_blender(ALLEGRO_ADD, ALLEGRO_ALPHA, ALLEGRO_INVERSE_ALPHA);
+
     ev_queue = al_create_event_queue();
     al_register_event_source(ev_queue, al_get_keyboard_event_source());
     al_register_event_source(ev_queue, al_get_mouse_event_source());
@@ -206,16 +209,25 @@ int main(int argc, char** argv) {
                 al_get_mouse_state(&mouse);
 
                 if (mouse.buttons & 1) {
-                    int tile_x = (cam_x + mouse.x) / tile_size;
-                    int tile_y = (cam_y + mouse.y) / tile_size;
-
-                    collision_map->set_blocked(tile_x, tile_y, true);
+                    if (mouse_edit_mode == MouseEditMode::BLOCK_TILE) {
+                        collision_map->set_blocked((cam_x + mouse.x) / tile_size, (cam_y + mouse.y) / tile_size, true);
+                    }
+                    else if (mouse_edit_mode == MouseEditMode::PLACE_INFLUENCE) {
+                        if (selected_inf_map != nullptr) {
+                            // TODO allow setting of different influence values
+                            selected_inf_map->add_influence((cam_x + mouse.x) / tile_size, (cam_y + mouse.y) / tile_size, 1.0f);
+                        }
+                    }
                 }
                 else if (mouse.buttons & 2) {
-                    int tile_x = (cam_x + mouse.x) / tile_size;
-                    int tile_y = (cam_y + mouse.y) / tile_size;
-
-                    collision_map->set_blocked(tile_x, tile_y, false);
+                    if (mouse_edit_mode == MouseEditMode::BLOCK_TILE) {
+                        collision_map->set_blocked((cam_x + mouse.x) / tile_size, (cam_y + mouse.y) / tile_size, false);
+                    }
+                    else if (mouse_edit_mode == MouseEditMode::PLACE_INFLUENCE) {
+                        if (selected_inf_map != nullptr) {
+                            selected_inf_map->add_influence((cam_x + mouse.x) / tile_size, (cam_y + mouse.y) / tile_size, 0.0f);
+                        }
+                    }
                 }
             }
         }
@@ -280,7 +292,6 @@ int main(int argc, char** argv) {
                 ImGui::SliderFloat("Momentum", &inf_map_momentum, 0.0f, 1.0f);
                 if (ImGui::Button("Create Influence")) {
                     if (inf_map_name.size() > 0) {
-                        // TODO allow customizing strength, decay, momentum
                         influence_maps.emplace_back(std::make_shared<InfluenceMap>(inf_map_name, collision_map, inf_map_strength, inf_map_decay, inf_map_momentum));
                     }
                 }
@@ -315,6 +326,11 @@ int main(int argc, char** argv) {
                 if (i == selected_inf_map) {
                     draw_influence_map(i, cam_x, cam_y, cam_x + SCREEN_WIDTH, cam_y + SCREEN_HEIGHT);
                 }
+            }
+
+            // render all influence maps
+            for (const auto& i : influence_maps) {
+                i->draw(cam_x, cam_y, cam_x + SCREEN_WIDTH, cam_y + SCREEN_HEIGHT);
             }
 
             // render GUI
