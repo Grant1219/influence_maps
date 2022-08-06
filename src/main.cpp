@@ -57,12 +57,14 @@ void draw_influence_map(std::shared_ptr<InfluenceMap> map, int start_x, int star
 
     for (int y = std::max(start_y / tile_size, 0); y < height && y * tile_size < end_y; y++) {
         for (int x = std::max(start_x / tile_size, 0); x < width && x * tile_size < end_x; x++) {
-            al_draw_filled_rectangle(x * tile_size + 1 - start_x, y * tile_size + 1 - start_y,
-                    (x + 1) * tile_size - 1 - start_x, (y + 1) * tile_size - 1 - start_y,
-                    al_map_rgba(0, 0, 225, influence_map[width * y + x] * 255 / strength));
-            al_draw_textf(bitmap_font, al_map_rgb(230, 230, 230),
-                    x * tile_size - start_x + tile_size / 3.4, y * tile_size - start_y + tile_size / 2.5, 0,
-                    "%.2f", influence_map[width * y + x]);
+            if (influence_map[width * y + x] >= 0.1) {
+                al_draw_filled_rectangle(x * tile_size + 1 - start_x, y * tile_size + 1 - start_y,
+                        (x + 1) * tile_size - 1 - start_x, (y + 1) * tile_size - 1 - start_y,
+                        al_map_rgba(0, 0, 225, influence_map[width * y + x] * 255 / strength));
+                al_draw_textf(bitmap_font, al_map_rgb(230, 230, 230),
+                        x * tile_size - start_x + tile_size / 3.4, y * tile_size - start_y + tile_size / 2.5, 0,
+                        "%.2f", influence_map[width * y + x]);
+            }
         }
     }
 }
@@ -215,7 +217,7 @@ int main(int argc, char** argv) {
                     else if (mouse_edit_mode == MouseEditMode::PLACE_INFLUENCE) {
                         if (selected_inf_map != nullptr) {
                             // TODO allow setting of different influence values
-                            selected_inf_map->add_influence((cam_x + mouse.x) / tile_size, (cam_y + mouse.y) / tile_size, 1.0f);
+                            selected_inf_map->add_influence((cam_x + mouse.x) / tile_size, (cam_y + mouse.y) / tile_size);
                         }
                     }
                 }
@@ -225,7 +227,7 @@ int main(int argc, char** argv) {
                     }
                     else if (mouse_edit_mode == MouseEditMode::PLACE_INFLUENCE) {
                         if (selected_inf_map != nullptr) {
-                            selected_inf_map->add_influence((cam_x + mouse.x) / tile_size, (cam_y + mouse.y) / tile_size, 0.0f);
+                            selected_inf_map->remove_influence((cam_x + mouse.x) / tile_size, (cam_y + mouse.y) / tile_size);
                         }
                     }
                 }
@@ -326,11 +328,6 @@ int main(int argc, char** argv) {
                 if (i == selected_inf_map) {
                     draw_influence_map(i, cam_x, cam_y, cam_x + SCREEN_WIDTH, cam_y + SCREEN_HEIGHT);
                 }
-            }
-
-            // render all influence maps
-            for (const auto& i : influence_maps) {
-                i->draw(cam_x, cam_y, cam_x + SCREEN_WIDTH, cam_y + SCREEN_HEIGHT);
             }
 
             // render GUI
